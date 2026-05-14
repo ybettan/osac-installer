@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Sets up CaaS agent infrastructure: InfraEnv + agent VM + label + approve.
 # Runs after setup.sh (MCE + AgentServiceConfig must be ready).
 # In CI, runs inside the installer container with SSH access to the bare metal host.

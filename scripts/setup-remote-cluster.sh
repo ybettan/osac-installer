@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # CI-only: assumes a fresh remote cluster, not idempotent.
 
 set -o nounset

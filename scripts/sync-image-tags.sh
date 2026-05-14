@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Sync image tags in base/kustomization.yaml to match submodule commits.
 # Each component repo publishes SHA-tagged images on every main merge.
 # This script reads the submodule commits and updates the kustomization.

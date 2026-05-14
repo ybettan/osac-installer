@@ -938,7 +938,7 @@ oc logs -n foobar deployment/dev-controller-manager | grep -i "tls\|certificate\
 
 **Automated Cluster Provisioning Script:**
 ```bash
-#!/bin/bash
+#!/usr/bin/env bash
 # cluster-provision-with-monitoring.sh
 
 set -euo pipefail
@@ -991,7 +991,7 @@ done
 
 **Bulk Cluster Management:**
 ```bash
-#!/bin/bash
+#!/usr/bin/env bash
 # bulk-cluster-operations.sh
 
 OPERATION=${1:-list}
@@ -1265,7 +1265,7 @@ done
 
 **Cluster Provisioning Script:**
 ```bash
-#!/bin/bash
+#!/usr/bin/env bash
 # cluster-provision.sh
 
 set -euo pipefail
@@ -1307,7 +1307,7 @@ echo "Cluster $CLUSTER_NAME ($CLUSTER_ID) is ready!"
 
 **Cluster Cleanup Script:**
 ```bash
-#!/bin/bash
+#!/usr/bin/env bash
 # cluster-cleanup.sh
 
 set -euo pipefail
@@ -1690,7 +1690,7 @@ oc exec deployment/fulfillment-service -n fulfillment-system -c server -- lsof -
 
 **Example Secure Token Script:**
 ```bash
-#!/bin/bash
+#!/usr/bin/env bash
 # secure-token.sh
 set -euo pipefail
 
@@ -1806,7 +1806,7 @@ go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
 
 # Set up pre-commit hooks
 cat > .git/hooks/pre-commit << 'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 go fmt ./...
 go vet ./...
 golangci-lint run
@@ -1840,7 +1840,7 @@ envsubst < config-template.json > config.json
 ```bash
 # Create health check script
 cat > health-check.sh << 'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 echo "Checking osac CLI health..."
