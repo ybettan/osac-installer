@@ -221,12 +221,14 @@ if oc get deployment automation-controller-operator-controller-manager -n aap &>
     AAP_NS="aap"
 elif oc get deployment automation-controller-operator-controller-manager -n ansible-aap &>/dev/null; then
     AAP_NS="ansible-aap"
+elif oc get deployment automation-controller-operator-controller-manager -n aap &>/dev/null; then
+    AAP_NS="aap"
 elif oc get deployment automation-controller-operator-controller-manager -n openshift-operators &>/dev/null; then
     AAP_NS="openshift-operators"
 fi
 
 if [[ -n "${AAP_NS}" ]]; then
-    echo "AAP operator is already installed in ${AAP_NS}, skipping..."
+    echo "AAP operator is already installed in namespace ${AAP_NS}, skipping..."
 else
     AAP_NS="ansible-aap"
     wait_for_namespace_cleanup ansible-aap
