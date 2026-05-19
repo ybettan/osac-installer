@@ -22,22 +22,43 @@ echo "Overlay: ${INSTALLER_KUSTOMIZE_OVERLAY}"
 echo "Cluster domain: ${CLUSTER_DOMAIN}"
 echo ""
 
-echo "[1/9] Patching stale routes with new domain..."
-echo "  New domain: ${CLUSTER_DOMAIN}"
-for ns in "${INSTALLER_NAMESPACE}" "${KEYCLOAK_NS}"; do
-    for route in $(oc get routes -n "${ns}" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-        OLD_HOST=$(oc get route "${route}" -n "${ns}" -o jsonpath='{.spec.host}')
-        ROUTE_DOMAIN=$(echo "${OLD_HOST}" | sed "s/^[^.]*\.//")
-        if [[ "${ROUTE_DOMAIN}" != "${CLUSTER_DOMAIN}" ]]; then
-            ROUTE_NAME=$(echo "${OLD_HOST}" | sed "s/\.${ROUTE_DOMAIN}$//")
-            NEW_HOST="${ROUTE_NAME}.${CLUSTER_DOMAIN}"
-            echo "  ${ns}/${route}: ${OLD_HOST} -> ${NEW_HOST}"
-            retry_command 300 10 oc patch route "${route}" -n "${ns}" --type=merge -p "{\"spec\":{\"host\":\"${NEW_HOST}\"}}"
-        fi
-    done
-done
+echo "Waiting for cluster services to stabilize..."
 
-echo "[2/9] Syncing Keycloak realm..."
+patch_stale_routes() {
+    echo "  Patching stale routes with new domain..."
+    for ns in "${INSTALLER_NAMESPACE}" "${KEYCLOAK_NS}"; do
+        for route in $(oc get routes -n "${ns}" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+            OLD_HOST=$(oc get route "${route}" -n "${ns}" -o jsonpath='{.spec.host}')
+            ROUTE_DOMAIN=$(echo "${OLD_HOST}" | sed "s/^[^.]*\.//")
+            if [[ "${ROUTE_DOMAIN}" != "${CLUSTER_DOMAIN}" ]]; then
+                ROUTE_NAME=$(echo "${OLD_HOST}" | sed "s/\.${ROUTE_DOMAIN}$//")
+                NEW_HOST="${ROUTE_NAME}.${CLUSTER_DOMAIN}"
+                echo "  ${ns}/${route}: ${OLD_HOST} -> ${NEW_HOST}"
+                retry_command 300 10 oc patch route "${route}" -n "${ns}" --type=merge -p "{\"spec\":{\"host\":\"${NEW_HOST}\"}}"
+            fi
+        done
+    done
+}
+
+oc rollout status deploy/trust-manager -n cert-manager --timeout=300s &
+pid_tm=$!
+oc wait --for=condition=Ready certificate/keycloak-tls -n "${KEYCLOAK_NS}" --timeout=300s &
+pid_kc=$!
+patch_stale_routes &
+pid_rt=$!
+
+failed=0
+wait ${pid_tm} || failed=1
+wait ${pid_kc} || failed=1
+wait ${pid_rt} || failed=1
+if (( failed )); then
+    echo "ERROR: Cluster services did not stabilize within timeout"
+    exit 1
+fi
+echo "Cluster services ready"
+echo ""
+
+echo "[1/8] Syncing Keycloak realm..."
 NEW_HASH=$(md5sum "${REALM_JSON}" | awk '{print $1}')
 OLD_HASH=$(oc get configmap keycloak-realm -n "${KEYCLOAK_NS}" -o jsonpath='{.data.realm\.json}' 2>/dev/null | md5sum | awk '{print $1}')
 if [[ "${NEW_HASH}" != "${OLD_HASH}" ]]; then
@@ -97,7 +118,7 @@ if [[ -f prerequisites/keycloak/service/password-setup-job.yaml ]]; then
     oc wait --for=condition=Complete job/keycloak-set-passwords -n "${KEYCLOAK_NS}" --timeout=120s
 fi
 
-echo "[3/9] Recreating fulfillment controller credentials..."
+echo "[2/8] Recreating fulfillment controller credentials..."
 FC_CLIENT_ID=$(jq -er '.clients[] | select(.serviceAccountsEnabled == true) | .clientId' "${REALM_JSON}")
 FC_CLIENT_SECRET=$(jq -er ".clients[] | select(.clientId == \"${FC_CLIENT_ID}\") | .secret // empty" "${REALM_JSON}")
 [[ -n "${FC_CLIENT_SECRET}" ]] || { echo "ERROR: Could not resolve secret for ${FC_CLIENT_ID} in realm.json" >&2; exit 1; }
@@ -108,32 +129,24 @@ oc create secret generic fulfillment-controller-credentials \
     -n "${INSTALLER_NAMESPACE}"
 echo "  Credentials created for client: ${FC_CLIENT_ID}"
 
-echo "[4/9] Applying kustomize overlay..."
-echo "  Checking trust-manager readiness..."
-echo "  trust-manager pods:"
-oc get pods -n cert-manager -l app.kubernetes.io/name=trust-manager --no-headers 2>/dev/null || echo "    (none found)"
-echo "  trust-manager endpoints:"
-oc get endpoints trust-manager -n cert-manager --no-headers 2>/dev/null || echo "    (none found)"
-echo "  Waiting for trust-manager rollout..."
-oc rollout status deploy/trust-manager -n cert-manager --timeout=300s
-echo "  trust-manager ready"
+echo "[3/8] Applying kustomize overlay..."
 oc delete job -n "${INSTALLER_NAMESPACE}" --all --ignore-not-found
 oc apply -k "overlays/${INSTALLER_KUSTOMIZE_OVERLAY}"
 
-echo "[5/9] Waiting for fulfillment rollouts..."
+echo "[4/8] Waiting for fulfillment rollouts..."
 for deploy in fulfillment-controller fulfillment-grpc-server fulfillment-rest-gateway fulfillment-ingress-proxy; do
     oc rollout status "deploy/${deploy}" -n "${INSTALLER_NAMESPACE}" --timeout=300s &
 done
 wait
 
-echo "[6/9] Applying AAP configuration..."
+echo "[5/8] Applying AAP configuration..."
 INSTALLER_NAMESPACE="${INSTALLER_NAMESPACE}" \
 INSTALLER_KUSTOMIZE_OVERLAY="${INSTALLER_KUSTOMIZE_OVERLAY}" \
     ./scripts/aap-configuration.sh
 
 oc config set-context --current --namespace="${INSTALLER_NAMESPACE}"
 
-echo "[7/9] Waiting for AAP controller..."
+echo "[6/8] Waiting for AAP controller..."
 retry_until 300 10 '[[ "$(oc get automationcontroller osac-aap-controller -n '"${INSTALLER_NAMESPACE}"' -o jsonpath='"'"'{.status.conditions[?(@.type=="Running")].status}'"'"' 2>/dev/null)" == "True" ]]' || {
     echo "Timed out waiting for AAP controller to be Running"
     exit 1
@@ -144,11 +157,11 @@ retry_until 120 5 '[[ "$(curl -sk -o /dev/null -w %{http_code} https://'"${AAP_R
     exit 1
 }
 
-echo "[8/9] Configuring AAP access and fulfillment service..."
+echo "[7/8] Configuring AAP access and fulfillment service..."
 ./scripts/prepare-aap.sh
 ./scripts/prepare-fulfillment-service.sh
 
-echo "[9/9] Restarting fulfillment pods and configuring tenant..."
+echo "[8/8] Restarting fulfillment pods and configuring tenant..."
 for deploy in fulfillment-controller fulfillment-grpc-server fulfillment-rest-gateway fulfillment-ingress-proxy; do
     oc rollout restart "deploy/${deploy}" -n "${INSTALLER_NAMESPACE}"
 done

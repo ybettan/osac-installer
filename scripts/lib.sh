@@ -85,6 +85,6 @@ retry_command() {
         fi
         echo "  retry_command: exit code ${rc}, retrying in ${interval}s..."
         sleep "${interval}"
-        (( attempt++ ))
+        attempt=$(( attempt + 1 ))
     done
 }
