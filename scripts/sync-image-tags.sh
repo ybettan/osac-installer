@@ -18,7 +18,7 @@ declare -A IMAGE_NAME=(
 errors=0
 
 for submodule in osac-operator osac-fulfillment-service osac-aap; do
-  commit=$(git -C "${REPO_ROOT}" submodule status "base/${submodule}" | awk '{print $1}' | tr -d '+')
+  commit=$(git -C "${REPO_ROOT}" submodule status "base/${submodule}" | awk '{print $1}' | tr -d ' +-')
   short="${commit:0:7}"
   tag="sha-${short}"
   image="${IMAGE_NAME[$submodule]}"
@@ -37,7 +37,7 @@ for submodule in osac-operator osac-fulfillment-service osac-aap; do
   fi
 done
 
-aap_commit=$(git -C "${REPO_ROOT}" submodule status "base/osac-aap" | awk '{print $1}' | tr -d '+')
+aap_commit=$(git -C "${REPO_ROOT}" submodule status "base/osac-aap" | awk '{print $1}' | tr -d ' +-')
 aap_short="${aap_commit:0:7}"
 aap_tag="sha-${aap_short}"
 
