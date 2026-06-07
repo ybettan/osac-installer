@@ -179,7 +179,7 @@
         "enabled": {
           "type": "boolean",
           "description": "Run database migrations on upgrade",
-          "default": true
+          "default": false
         },
         "image": {
           "type": "string",
