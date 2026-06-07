@@ -172,7 +172,11 @@ oc delete job -n "${INSTALLER_NAMESPACE}" --all --ignore-not-found
 # deployment, killing in-flight AAP jobs. The bootstrap job is redundant
 # on snapshot boot (AAP is already configured) and races the operator.
 # NOTE: if aap.yaml or job.yaml change, the snapshot must be recreated.
-sed -i '/aap\.yaml/d; /job\.yaml/d' base/osac-aap/config/base/kustomization.yaml
+if [[ "$(uname)" == "Darwin" ]]; then
+  sed -i '' '/aap\.yaml/d; /job\.yaml/d' base/osac-aap/config/base/kustomization.yaml
+else
+  sed -i '/aap\.yaml/d; /job\.yaml/d' base/osac-aap/config/base/kustomization.yaml
+fi
 oc apply -k "overlays/${INSTALLER_KUSTOMIZE_OVERLAY}"
 
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
