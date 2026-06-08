@@ -306,6 +306,9 @@ for cert in "${fs_certs[@]}"; do
         -n "${INSTALLER_NAMESPACE}" --timeout=300s &
     pids+=($!)
 done
+# Envoy never re-reads its config after startup. Restart ingress-proxy before
+# the rollout wait so that pods depending on new routes (e.g. JWKS) can start.
+oc rollout restart deploy/fulfillment-ingress-proxy -n "${INSTALLER_NAMESPACE}"
 # Kustomize apply may have changed deployment images, triggering new rollouts
 # that run DB migrations. Wait for those to finish before restarting pods —
 # otherwise the restart kills pods mid-migration and leaves the DB dirty.
