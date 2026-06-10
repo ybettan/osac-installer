@@ -41,9 +41,9 @@ secretGenerator:
   options:
     disableNameSuffixHash: true
   literals:
-    - AAP_EE_IMAGE=ghcr.io/osac-project/osac-aap:sha-189922b
+    - AAP_EE_IMAGE=ghcr.io/osac-project/osac-aap:sha-233a60c
     - AAP_PROJECT_GIT_URI=https://github.com/osac-project/osac-aap
-    - AAP_PROJECT_GIT_BRANCH=189922bb5e0645424d722397dce113b9426ac153
+    - AAP_PROJECT_GIT_BRANCH=233a60cdc1cfbbf5943dfff2c724167e91936cdb
 
 - name: cluster-fulfillment-ig
   options:
@@ -334,6 +334,8 @@ patches:
                     "/osac.public.v1.Clusters/GetPasswordViaHttp",
                     "/osac.public.v1.Clusters/List",
                     "/osac.public.v1.Clusters/Update",
+                    "/osac.public.v1.ClusterCatalogItems/Get",
+                    "/osac.public.v1.ClusterCatalogItems/List",
                     "/osac.public.v1.ComputeInstanceTemplates/Get",
                     "/osac.public.v1.ComputeInstanceTemplates/List",
                     "/osac.public.v1.ComputeInstances/Create",
