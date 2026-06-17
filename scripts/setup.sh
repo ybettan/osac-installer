@@ -9,6 +9,10 @@ source "${SCRIPT_DIR}/lib.sh"
 
 # Deploy mode: "helm" (default) or "kustomize" (legacy)
 DEPLOY_MODE=${DEPLOY_MODE:-"helm"}
+if [[ "${DEPLOY_MODE}" == "helm" ]]; then
+    # Ensure helm is installed
+    command -v helm &>/dev/null || { echo "Error: helm not found in PATH" >&2; exit 1; }
+fi
 
 INSTALLER_KUSTOMIZE_OVERLAY=${INSTALLER_KUSTOMIZE_OVERLAY:-"development"}
 VALUES_FILE=${VALUES_FILE:-"values/development.yaml"}
