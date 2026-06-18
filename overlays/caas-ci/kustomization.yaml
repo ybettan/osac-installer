@@ -79,6 +79,59 @@ images:
     newTag: "4.20.0"
 
 patches:
+  # kustomize nameReference tracking breaks when osac-operator and bmf-operator both contribute a
+  # ServiceAccount originally named "controller-manager", causing the prefix transformer to reset
+  # CRB subjects to the unresolved original. Pin them explicitly to work around the collision.
+  - target:
+      kind: ClusterRoleBinding
+      name: osac-operator-manager-rolebinding
+    patch: |-
+      - op: replace
+        path: /subjects/0/name
+        value: osac-operator-controller-manager
+      - op: replace
+        path: /subjects/0/namespace
+        value: osac-e2e-ci
+  - target:
+      kind: ClusterRoleBinding
+      name: osac-operator-manager-admin-rolebinding
+    patch: |-
+      - op: replace
+        path: /subjects/0/name
+        value: osac-operator-controller-manager
+      - op: replace
+        path: /subjects/0/namespace
+        value: osac-e2e-ci
+  - target:
+      kind: ClusterRoleBinding
+      name: osac-operator-metrics-auth-rolebinding
+    patch: |-
+      - op: replace
+        path: /subjects/0/name
+        value: osac-operator-controller-manager
+      - op: replace
+        path: /subjects/0/namespace
+        value: osac-e2e-ci
+  - target:
+      kind: ClusterRoleBinding
+      name: bmf-operator-manager-rolebinding
+    patch: |-
+      - op: replace
+        path: /subjects/0/name
+        value: bmf-operator-controller-manager
+      - op: replace
+        path: /subjects/0/namespace
+        value: osac-e2e-ci
+  - target:
+      kind: ClusterRoleBinding
+      name: bmf-operator-metrics-auth-rolebinding
+    patch: |-
+      - op: replace
+        path: /subjects/0/name
+        value: bmf-operator-controller-manager
+      - op: replace
+        path: /subjects/0/namespace
+        value: osac-e2e-ci
   - patch: |
       apiVersion: apps/v1
       kind: Deployment
