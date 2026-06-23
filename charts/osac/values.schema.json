@@ -946,6 +946,22 @@
         }
       }
     },
+    "metallb": {
+      "type": "object",
+      "description": "MetalLB IPAddressPool and L2Advertisement for LoadBalancer services",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Create MetalLB IPAddressPool and L2Advertisement",
+          "default": false
+        },
+        "addressCIDR": {
+          "type": "string",
+          "description": "CIDR range for the MetalLB address pool",
+          "default": "192.168.40.0/24"
+        }
+      }
+    },
     "capiProvider": {
       "type": "object",
       "description": "CAPI Provider RBAC for Agent platform access",

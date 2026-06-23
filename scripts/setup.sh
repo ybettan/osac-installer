@@ -28,7 +28,6 @@ INSTALLER_VM_TEMPLATE=${INSTALLER_VM_TEMPLATE:-}
 # EXTRA_SERVICES=true enables all optional services (storage, ingress, virtualization, MCE)
 EXTRA_SERVICES=${EXTRA_SERVICES:-"false"}
 INGRESS_SERVICE=${INGRESS_SERVICE:-${EXTRA_SERVICES}}
-METALLB_ADDRESS_CIDR=${METALLB_ADDRESS_CIDR:-"192.168.40.0/24"}
 STORAGE_SERVICE=${STORAGE_SERVICE:-${EXTRA_SERVICES}}
 VIRT_SERVICE=${VIRT_SERVICE:-${EXTRA_SERVICES}}
 MCE_SERVICE=${MCE_SERVICE:-${EXTRA_SERVICES}}
@@ -80,8 +79,7 @@ if [[ "${INGRESS_SERVICE}" == "true" ]]; then
     wait_for_resource deployment/metallb-operator-webhook-server condition=Available 300 metallb-system
 
     # Apply MetalLB CRD-based configuration (requires operator CRDs to be installed)
-    export METALLB_ADDRESS_CIDR
-    envsubst '${METALLB_ADDRESS_CIDR}' < prerequisites/metallb/metallb-config.yaml | oc apply -f -
+    oc apply -f prerequisites/metallb/metallb-config.yaml
 fi
 
 # Optionally install Multicluster Engine and infrastructure operator
