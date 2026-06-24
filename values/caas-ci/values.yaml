@@ -79,7 +79,7 @@ service:
         - key: ca.crt
           param: sslrootcert
   log:
-    level: info
+    level: debug
 
 # --- AAP ---
 aap:
