@@ -492,6 +492,55 @@
             "projectGitBranch": {
               "type": "string",
               "description": "Git branch for config-as-code project"
+            },
+            "importAgentsEnabled": {
+              "type": "boolean",
+              "description": "Enable ConfigMap-based bare metal agent import. Sets OSAC_IMPORT_AGENTS_ENABLED=true in the config-as-code-ig Secret and gates the import-agents-inventory ConfigMap.",
+              "default": false
+            }
+          }
+        },
+        "importAgents": {
+          "type": "object",
+          "description": "Server inventory for bare metal agent import. Enable via aap.configAsCode.importAgentsEnabled.",
+          "properties": {
+            "servers": {
+              "type": "array",
+              "description": "Server inventory for bare metal agent import. Each entry provisions a BareMetalHost CR.",
+              "items": {
+                "type": "object",
+                "required": ["name", "bmc_url", "bmc_secret", "boot_mac", "netris_server_name", "resource_class"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Server hostname, used as the BareMetalHost CR name"
+                  },
+                  "bmc_url": {
+                    "type": "string",
+                    "description": "Redfish BMC address for virtual media boot"
+                  },
+                  "bmc_secret": {
+                    "type": "string",
+                    "description": "Name of the Kubernetes Secret with BMC credentials"
+                  },
+                  "boot_mac": {
+                    "type": "string",
+                    "description": "Boot NIC MAC address"
+                  },
+                  "netris_server_name": {
+                    "type": "string",
+                    "description": "Netris server name label for the Agent"
+                  },
+                  "resource_class": {
+                    "type": "string",
+                    "description": "Hardware type label for the Agent"
+                  },
+                  "disable_bmc_cert_verification": {
+                    "type": "boolean",
+                    "description": "Per-server override for BMC TLS certificate verification"
+                  }
+                }
+              }
             }
           }
         }
@@ -892,55 +941,6 @@
             "SERVER_SSH_BASTION_KEY": {
               "type": "string",
               "description": "SSH private key for bastion access"
-            }
-          }
-        }
-      }
-    },
-    "importAgents": {
-      "type": "object",
-      "description": "ConfigMap-based bare metal agent import configuration",
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enable ConfigMap-based bare metal agent import (sets OSAC_IMPORT_AGENTS_ENABLED in config-as-code-ig Secret)",
-          "default": false
-        },
-        "servers": {
-          "type": "array",
-          "description": "Server inventory for bare metal agent import. Each entry provisions a BareMetalHost CR.",
-          "items": {
-            "type": "object",
-            "required": ["name", "bmc_url", "bmc_secret", "boot_mac", "netris_server_name", "resource_class"],
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "Server hostname, used as the BareMetalHost CR name"
-              },
-              "bmc_url": {
-                "type": "string",
-                "description": "Redfish BMC address for virtual media boot"
-              },
-              "bmc_secret": {
-                "type": "string",
-                "description": "Name of the Kubernetes Secret with BMC credentials"
-              },
-              "boot_mac": {
-                "type": "string",
-                "description": "Boot NIC MAC address"
-              },
-              "netris_server_name": {
-                "type": "string",
-                "description": "Netris server name label for the Agent"
-              },
-              "resource_class": {
-                "type": "string",
-                "description": "Hardware type label for the Agent"
-              },
-              "disable_bmc_cert_verification": {
-                "type": "boolean",
-                "description": "Per-server override for BMC TLS certificate verification"
-              }
             }
           }
         }

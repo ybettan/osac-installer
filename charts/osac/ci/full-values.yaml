@@ -57,9 +57,6 @@ dbMigrate:
   image: ghcr.io/osac-project/fulfillment-service:latest
   dbUrlFile: "/etc/fulfillment-service/db/url"
 
-importAgents:
-  enabled: false
-
 clusterFulfillment:
   enabled: true
   config:
