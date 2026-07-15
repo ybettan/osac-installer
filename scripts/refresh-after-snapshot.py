@@ -5,7 +5,9 @@ All OSAC pods are at zero replicas. This script:
   1. Starts slow operators (AAP) early + fixes cluster identity
   2. Prepares the environment (Keycloak, secrets, CA bundle, DB)
   3. Deploys via helm upgrade + waits with health monitoring
-  4. Runs post-flight configuration (AAP token, hub, tenants)
+
+Post-flight tasks (AAP token, hub registration, template publishing) are
+handled by Helm post-install/post-upgrade hooks during the Phase 3 upgrade.
 
 Fail fast: any error aborts immediately. CrashLoopBackOff/ImagePullBackOff
 detected during rollout waits.
@@ -47,8 +49,6 @@ class RefreshConfig:
     values_file: str
     namespace: str
     cluster_domain: str
-    vm_template: str = ""
-    cluster_template: str = ""
     keycloak_ns: str = "keycloak"
     realm_json: str = "prerequisites/keycloak/service/files/realm.json"
     aap_stale_ts: str = field(default="", init=False)
@@ -839,43 +839,6 @@ def fix_assisted_service() -> None:
         oc("rollout", "restart", "statefulset/assisted-image-service", "-n", "multicluster-engine")
 
 
-# ─── Phase 4: Post-flight ───────────────────────────────────────────────────
-
-
-def post_flight(config: RefreshConfig) -> None:
-    """Run post-deploy prepare scripts and wait for fulfillment rollouts."""
-    oc("config", "set-context", "--current", f"--namespace={config.namespace}")
-
-    os.environ["INSTALLER_NAMESPACE"] = config.namespace
-    os.environ["SKIP_TOKEN_CONFIG_PATCH"] = "1"
-    if config.vm_template:
-        os.environ["INSTALLER_VM_TEMPLATE"] = config.vm_template
-    if config.cluster_template:
-        os.environ["INSTALLER_CLUSTER_TEMPLATE"] = config.cluster_template
-
-    print("  Running prepare-aap.sh...")
-    run([str(SCRIPT_DIR / "prepare-aap.sh")])
-
-    # publish-templates must run because the fulfillment database is recreated
-    # on every refresh (bare Pod with emptyDir — data lost on scale-to-zero).
-    print("  Running prepare-fulfillment-service.sh...")
-    run([str(SCRIPT_DIR / "prepare-fulfillment-service.sh")])
-
-    print("  Waiting for fulfillment rollouts after env update...")
-    deploys = oc_json("get", "deploy", "-n", config.namespace,
-                      "-l", "app=fulfillment-service")
-    for d in deploys["items"]:
-        name: str = d["metadata"]["name"]
-        wait_rollout_healthy(name, config.namespace, timeout=300)
-
-    print("  Running prepare-tenant.sh...")
-    run([str(SCRIPT_DIR / "prepare-tenant.sh")])
-
-    for key in ["INSTALLER_NAMESPACE", "SKIP_TOKEN_CONFIG_PATCH",
-                "INSTALLER_VM_TEMPLATE", "INSTALLER_CLUSTER_TEMPLATE"]:
-        os.environ.pop(key, None)
-
-
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 
@@ -894,8 +857,6 @@ def main() -> None:
         values_file=values_file,
         namespace=namespace,
         cluster_domain=cluster_domain,
-        vm_template=os.environ.get("INSTALLER_VM_TEMPLATE", ""),
-        cluster_template=os.environ.get("INSTALLER_CLUSTER_TEMPLATE", ""),
     )
 
     start_time = time.time()
@@ -950,15 +911,6 @@ def main() -> None:
     print("  Running final pod health check...")
     check_all_pods(config.namespace)
     print(f"[Phase 3] Done ({time.time() - phase_start:.0f}s)\n")
-
-    # Phase 4: Post-flight (sequential)
-    # Snapshot restart counts now. Post-flight takes ~3 min — any pod whose
-    phase_start = time.time()
-    print("[Phase 4] Post-flight configuration...")
-    post_flight(config)
-    print("  Running final pod health check...")
-    check_all_pods(config.namespace)
-    print(f"[Phase 4] Done ({time.time() - phase_start:.0f}s)\n")
 
     total = time.time() - start_time
     print()
