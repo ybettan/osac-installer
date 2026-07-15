@@ -631,7 +631,8 @@
                         "osac.steps",
                         "netris.steps",
                         "ci.steps",
-                        "nico.steps"
+                        "nico.steps",
+                        "agentless_net.steps"
                       ]
                     },
                     "DNS_CLASS": {
