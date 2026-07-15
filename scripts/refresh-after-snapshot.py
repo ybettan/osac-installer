@@ -749,24 +749,42 @@ def maybe_upgrade_fulfillment_db(config: RefreshConfig) -> None:
 
 
 def adopt_resources_for_helm(config: RefreshConfig) -> None:
-    """Annotate existing namespace resources so Helm can manage them."""
+    """Adopt existing namespace resources so Helm can manage them.
+
+    Sets both the annotation (meta.helm.sh/release-name) and the label
+    (app.kubernetes.io/managed-by=Helm). Without the label, Helm refuses
+    to import the resource.
+
+    Also handles cross-chart resources (e.g. postgres-server cert owned by
+    fulfillment-db) and deletes RoleBindings whose roleRef changed (roleRef
+    is immutable — must be deleted and recreated by Helm).
+    """
     print("  Adopting existing resources for Helm...")
-    result = oc("get", "all,configmap,secret,route", "-n", config.namespace,
-                "-o", "name", capture=True, check=False)
+    result = oc("get", "all,configmap,secret,certificate,route,rolebinding",
+                "-n", config.namespace, "-o", "name", capture=True, check=False)
     resources = [r for r in result.stdout.strip().splitlines() if r]
 
     def _adopt(resource: str) -> None:
-        """Add Helm release metadata annotations to a single resource."""
-        r = oc("annotate", resource, "-n", config.namespace,
-               "meta.helm.sh/release-name=osac",
-               f"meta.helm.sh/release-namespace={config.namespace}",
-               "--overwrite", check=False, capture=True)
-        if r.returncode != 0:
-            print(f"  WARN: failed to adopt {resource}: {r.stderr or r.stdout}", file=sys.stderr)
+        """Add Helm release metadata to a single resource."""
+        oc("label", resource, "-n", config.namespace,
+           "app.kubernetes.io/managed-by=Helm",
+           "--overwrite", check=False, capture=True)
+        oc("annotate", resource, "-n", config.namespace,
+           "meta.helm.sh/release-name=osac",
+           f"meta.helm.sh/release-namespace={config.namespace}",
+           "--overwrite", check=False, capture=True)
 
     with ThreadPoolExecutor(max_workers=20) as pool:
         list(pool.map(_adopt, resources))
     print(f"  Adopted {len(resources)} resources")
+
+    # Delete RoleBindings whose roleRef may have changed (immutable field).
+    # Helm will recreate them with the correct roleRef.
+    for rb in ("hub-access",):
+        r = oc("delete", "rolebinding", rb, "-n", config.namespace,
+               "--ignore-not-found", check=False, capture=True)
+        if r.returncode == 0 and "deleted" in r.stdout:
+            print(f"  Deleted stale rolebinding/{rb}")
 
 
 def upgrade_osac(config: RefreshConfig) -> None:
