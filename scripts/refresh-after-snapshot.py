@@ -606,7 +606,12 @@ def approve_pending_csrs() -> None:
 
 
 def scale_csv_to(*, csv_name: str, namespace: str, replicas: int) -> None:
-    """Patch a ClusterServiceVersion to scale all owned Deployments."""
+    """Patch a ClusterServiceVersion to scale all owned Deployments.
+
+    OLM should reconcile the CSV patch into the actual Deployment objects,
+    but this can be slow after a cold snapshot boot. If the CSV-driven wait
+    times out, fall back to directly scaling the Deployments.
+    """
     csv_data = oc_json("get", "csv", csv_name, "-n", namespace)
     deploys: list[dict] = csv_data["spec"]["install"]["spec"]["deployments"]
     patch = [
@@ -617,9 +622,14 @@ def scale_csv_to(*, csv_name: str, namespace: str, replicas: int) -> None:
     ]
     oc("patch", "csv", csv_name, "-n", namespace, "--type=json", "-p", json.dumps(patch))
     for d in deploys:
+        name = d["name"]
         target = f"{replicas}"
-        oc("wait", f"deploy/{d['name']}", "-n", namespace,
-           f"--for=jsonpath={{.spec.replicas}}={target}", "--timeout=120s")
+        r = oc("wait", f"deploy/{name}", "-n", namespace,
+               f"--for=jsonpath={{.spec.replicas}}={target}", "--timeout=120s",
+               check=False, capture=True)
+        if r.returncode != 0:
+            print(f"  CSV wait timed out for {name}, scaling directly...")
+            oc("scale", f"deploy/{name}", "-n", namespace, f"--replicas={replicas}")
 
 
 def find_csv(*, namespace: str, deploy_name: str) -> str:
