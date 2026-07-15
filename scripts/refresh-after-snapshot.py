@@ -295,6 +295,12 @@ def check_all_pods(namespace: str) -> None:
 
 def patch_stale_routes(config: RefreshConfig) -> None:
     """Rewrite route hosts that still reference the snapshot cluster domain."""
+    retry_until(
+        description="Routes API available",
+        timeout=180, interval=5,
+        condition=lambda: oc("get", "routes", "-n", config.namespace,
+                             check=False, capture=True).returncode == 0,
+    )
     for ns in [config.namespace, config.keycloak_ns, "multicluster-engine"]:
         if not oc_exists(f"namespace/{ns}"):
             continue
