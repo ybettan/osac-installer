@@ -476,6 +476,9 @@ def _get_keycloak_client_secret(config: RefreshConfig, client_id: str) -> str:
 
     Used when realm.json contains placeholder secrets (e.g. __OSAC_CONTROLLER_CLIENT_SECRET__)
     that were resolved at install time by the prereqs chart but aren't in the repo file.
+
+    Retries the token request because create_secrets runs in parallel with
+    keycloak_sync which may be restarting Keycloak at the same time.
     """
     kc_host = oc("get", "route", "keycloak", "-n", config.keycloak_ns,
                  "-o", "jsonpath={.spec.host}", capture=True).stdout.strip()
@@ -486,9 +489,20 @@ def _get_keycloak_client_secret(config: RefreshConfig, client_id: str) -> str:
                  "-o", "jsonpath={.spec.template.spec.containers[0].env[?(@.name=='KEYCLOAK_ADMIN')].value}",
                  capture=True).stdout.strip() or "admin"
 
+    token_url = f"https://{kc_host}/realms/master/protocol/openid-connect/token"
+    token_data = f"grant_type=password&client_id=admin-cli&username={kc_user}&password={kc_password}"
+
+    def _get_token() -> bool:
+        r = subprocess.run(
+            ["curl", "-sk", "-o", "/dev/null", "-w", "%{http_code}", token_url, "-d", token_data],
+            capture_output=True, text=True, check=False)
+        return r.stdout.strip() == "200"
+
+    retry_until(description="Keycloak token endpoint ready", timeout=300, interval=5,
+                condition=_get_token)
+
     token_resp = subprocess.run(
-        ["curl", "-sk", f"https://{kc_host}/realms/master/protocol/openid-connect/token",
-         "-d", f"grant_type=password&client_id=admin-cli&username={kc_user}&password={kc_password}"],
+        ["curl", "-sk", token_url, "-d", token_data],
         capture_output=True, text=True, check=True)
     token = json.loads(token_resp.stdout)["access_token"]
 
