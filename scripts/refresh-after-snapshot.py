@@ -465,6 +465,43 @@ def keycloak_sync(config: RefreshConfig) -> None:
     print("  Keycloak ready")
 
 
+def _get_keycloak_client_secret(config: RefreshConfig, client_id: str) -> str:
+    """Fetch the real client secret from the running Keycloak instance.
+
+    Used when realm.json contains placeholder secrets (e.g. __OSAC_CONTROLLER_CLIENT_SECRET__)
+    that were resolved at install time by the prereqs chart but aren't in the repo file.
+    """
+    kc_host = oc("get", "route", "keycloak", "-n", config.keycloak_ns,
+                 "-o", "jsonpath={.spec.host}", capture=True).stdout.strip()
+    kc_password = oc("get", "deploy/keycloak-service", "-n", config.keycloak_ns,
+                     "-o", "jsonpath={.spec.template.spec.containers[0].env[?(@.name=='KEYCLOAK_ADMIN_PASSWORD')].value}",
+                     capture=True).stdout.strip()
+    kc_user = oc("get", "deploy/keycloak-service", "-n", config.keycloak_ns,
+                 "-o", "jsonpath={.spec.template.spec.containers[0].env[?(@.name=='KEYCLOAK_ADMIN')].value}",
+                 capture=True).stdout.strip() or "admin"
+
+    token_resp = subprocess.run(
+        ["curl", "-sk", f"https://{kc_host}/realms/master/protocol/openid-connect/token",
+         "-d", f"grant_type=password&client_id=admin-cli&username={kc_user}&password={kc_password}"],
+        capture_output=True, text=True, check=True)
+    token = json.loads(token_resp.stdout)["access_token"]
+
+    clients_resp = subprocess.run(
+        ["curl", "-sk", "-H", f"Authorization: Bearer {token}",
+         f"https://{kc_host}/admin/realms/osac/clients"],
+        capture_output=True, text=True, check=True)
+    clients = json.loads(clients_resp.stdout)
+    kc_client = next((c for c in clients if c.get("clientId") == client_id), None)
+    if not kc_client:
+        raise RuntimeError(f"Client {client_id} not found in Keycloak")
+
+    secret_resp = subprocess.run(
+        ["curl", "-sk", "-H", f"Authorization: Bearer {token}",
+         f"https://{kc_host}/admin/realms/osac/clients/{kc_client['id']}/client-secret"],
+        capture_output=True, text=True, check=True)
+    return json.loads(secret_resp.stdout)["value"]
+
+
 def create_secrets(config: RefreshConfig) -> None:
     """Create fulfillment, AAP license, and pull secrets for the namespace."""
     print("  Creating secrets...")
@@ -475,8 +512,10 @@ def create_secrets(config: RefreshConfig) -> None:
         raise RuntimeError("No client with serviceAccountsEnabled in realm.json")
     fc_id: str = fc_client["clientId"]
     fc_secret: str = fc_client.get("secret", "")
-    if not fc_secret:
-        raise RuntimeError(f"No secret for client {fc_id} in realm.json")
+
+    if not fc_secret or fc_secret.startswith("__"):
+        print(f"  Fetching {fc_id} client secret from Keycloak API...")
+        fc_secret = _get_keycloak_client_secret(config, fc_id)
 
     oc_apply_secret("fulfillment-controller-credentials", config.namespace,
                     f"--from-literal=client-id={fc_id}",
