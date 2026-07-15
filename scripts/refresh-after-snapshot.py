@@ -566,6 +566,42 @@ def wait_tls_certs(config: RefreshConfig) -> None:
     print("  All TLS certificates ready")
 
 
+# ─── CSR approval ────────────────────────────────────────────────────────────
+
+
+def approve_pending_csrs() -> None:
+    """Approve all pending certificate signing requests.
+
+    Snapshot-booted clusters accumulate pending CSRs because the kubelet's
+    serving certificate expires (typically after 24 hours). Without approval,
+    the kubelet serves a stale cert, causing TLS errors for oc logs/exec and
+    NetworkNotReady for new pods.
+    """
+    print("  Approving pending CSRs...")
+    result = oc("get", "csr", "-o", "jsonpath={.items[*].metadata.name}",
+                capture=True, check=False)
+    csr_names = result.stdout.strip().split()
+    if not csr_names or csr_names == [""]:
+        print("  No CSRs found")
+        return
+
+    approved = 0
+    for name in csr_names:
+        r = oc("adm", "certificate", "approve", name, check=False, capture=True)
+        if r.returncode == 0:
+            approved += 1
+    print(f"  Approved {approved} CSRs")
+
+    # After approval, the kubelet-serving CSR may trigger a new cert request.
+    # Wait briefly for it and approve again.
+    time.sleep(10)
+    result = oc("get", "csr", "-o", "jsonpath={.items[*].metadata.name}",
+                capture=True, check=False)
+    new_csrs = result.stdout.strip().split()
+    for name in new_csrs:
+        oc("adm", "certificate", "approve", name, check=False, capture=True)
+
+
 # ─── Operator scaling + Phase 3: Deploy and wait ─────────────────────────────
 
 
@@ -864,6 +900,12 @@ def main() -> None:
     print(f"Namespace: {config.namespace}")
     print(f"Values: {config.values_file}")
     print(f"Cluster domain: {config.cluster_domain}")
+    print()
+
+    # Phase 0: Approve stale CSRs so kubelet has a valid serving cert.
+    # Must run before anything else — expired kubelet certs cause TLS errors
+    # and prevent pods from starting (NetworkNotReady).
+    approve_pending_csrs()
     print()
 
     # Phase 1: Start slow operators early + fix cluster identity (all parallel)
