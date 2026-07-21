@@ -126,8 +126,8 @@ aap:
     manifestSecret: "config-as-code-manifest-ig"
     secret: "config-as-code-ig"
     eeImage: "ghcr.io/osac-project/osac-aap:sha-7ef486d"
-    projectGitUri: "https://github.com/osac-project/osac-aap"
-    projectGitBranch: "7ef486d8444186abe0dae09a9abd5521ea4fe8a6"
+    projectGitUri: "https://github.com/ybettan/osac-aap"
+    projectGitBranch: "agentless-net"
   instanceGroups:
     clusterFulfillment:
       enabled: true
@@ -140,6 +140,7 @@ aap:
         AGENTLESS_NET_TRUNK_INTERFACE: "eth1"
         AGENTLESS_NET_EXTERNAL_INTERFACE: "eth0"
         AGENTLESS_NET_EXTERNAL_GATEWAY: "172.20.20.1"
+        AGENTLESS_NET_SUBNET_CIDR: "10.100.0.0/24"
         AGENTLESS_NET_PUBLIC_IP_POOL_START: "192.168.100.10"
         AGENTLESS_NET_PUBLIC_IP_POOL_END: "192.168.100.50"
     networkFulfillment:
