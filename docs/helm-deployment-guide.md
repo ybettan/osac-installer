@@ -195,8 +195,8 @@ oc logs job/osac-publish-templates -n ${NAMESPACE} -c publish-templates     # ma
 - **AAP job failure** - The hook logs include the AAP job stdout on failure.
   Check AAP for the job run details.
 
-The hook has `backoffLimit: 6` and `activeDeadlineSeconds: 1300`. After
-6 retries or 1300s, the Job fails and Helm reports the install as failed.
+The hook has `backoffLimit: 10` and `activeDeadlineSeconds: 1300`. After
+10 retries or 1300s, the Job fails and Helm reports the install as failed.
 
 ### Hook Job Failed
 
