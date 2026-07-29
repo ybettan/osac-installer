@@ -143,8 +143,9 @@ aap:
         AGENTLESS_NET_SUBNET_CIDR: "10.100.0.0/24"
         AGENTLESS_NET_PUBLIC_IP_POOL_START: "192.168.100.10"
         AGENTLESS_NET_PUBLIC_IP_POOL_END: "192.168.100.50"
-        EXTERNAL_ACCESS_BASE_DOMAIN: "hosted.test-infra-cluster-agentless-lab-mgmt.redhat.com"
-        EXTERNAL_ACCESS_SUPPORTED_BASE_DOMAINS: "hosted.test-infra-cluster-agentless-lab-mgmt.redhat.com"
+        HOSTED_CLUSTER_BASE_DOMAIN: "box.massopen.cloud"
+        EXTERNAL_ACCESS_BASE_DOMAIN: "box.massopen.cloud"
+        EXTERNAL_ACCESS_SUPPORTED_BASE_DOMAINS: "box.massopen.cloud"
     networkFulfillment:
       enabled: true
 
