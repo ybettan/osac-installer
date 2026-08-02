@@ -133,6 +133,7 @@ aap:
       enabled: true
       config:
         NETWORK_STEPS_COLLECTION: "agentless_net.steps"
+        NETWORK_CLASS: "agentless_net"
         HOSTED_CLUSTER_CONTROLLER_AVAILABILITY_POLICY: "SingleReplica"
         HOSTED_CLUSTER_INFRASTRUCTURE_AVAILABILITY_POLICY: "SingleReplica"
         AGENTLESS_NET_VLAN_POOL_START: "100"
