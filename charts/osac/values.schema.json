@@ -620,7 +620,8 @@
                         "",
                         "esi",
                         "netris",
-                        "nico"
+                        "nico",
+                        "agentless_net"
                       ]
                     },
                     "NETWORK_STEPS_COLLECTION": {
